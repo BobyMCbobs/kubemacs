@@ -1,6 +1,9 @@
 # -*- ii: enabled; -*-
 #+TITLE: kubemacs
 
+#+ATTR_HTML: :width 300 :style border:2px solid black;
+[[./assets/Kubemacs-draft-logo.png]]
+
 * Kubemacs
 #+BEGIN_QUOTE
 An integrated emacs+spacemacs-based development environment, capable of local and cloud-based workflows.
@@ -11,16 +14,38 @@ An integrated emacs+spacemacs-based development environment, capable of local an
 
 ** Installing
 *** macOS
-
+1. Install [[https://brew.sh/][Brew]]
+2. Install Apps
+    #+begin_src shell
+    brew install tmux tmate jq kubectl kind the_silver_searcher ripgrep go@1.14
+    brew cask install emacs emacsclient iterm2 docker
+    #+end_src
+3. Clone Kubemacs into emacs site-lisp
+    #+begin_src shell
+    EMACS_SITE_LISP=/Applications/Emacs.app/Contents/Resources/site-lisp/kubemacs
+    git clone --recursive https://github.com/kubemacs/kubemacs.git $EMACS_SITE_LISP
+    #+end_src
 
 *** Windows
 
 
-*** Linux
-
+*** Linux (Flatpak) (COMING SOON)
+1. Install [[https://flatpak.org/setup/][Flatpak]]
+2. Go to [[https://flathub.org/apps/details/coop.ii.kubemacs][FlatHub.org]] to install or
+    #+begin_src shell
+    flatpak install flathub coop.ii.kubemacs
+    #+end_src
+3. Launch from the app launcher (desktop mode) or
+    #+begin_src shell
+    # -nw says to emacs to launch in terminal mode
+    flatpak run coop.ii.kubemacs -nw
+    #+end_src
 
 *** Kubernetes
-
+    #+begin_src shell
+    kubectl create namespace ii
+    kubectl -n ii apply -f manifests
+    #+end_src
 
 *** Kind
 First, create a config file in your home directory called .kubemacs-env, the contents something like:
@@ -61,7 +86,19 @@ First, create a config file in your home directory called .kubemacs-env, the con
 
     Initialize the environment:
     #+begin_src shell
-    ENV_FILE=$HOME/.kubemacs-env; . $ENV_FILE; docker run --env-file $ENV_FILE --name kubemacs-docker-init --user root --privileged --network host -e KUBEMACS_INIT_DEBUG=true -e KUBEMACS_IMAGE --rm -it -v "$HOME/.kube:/tmp/.kube" -v /var/run/docker.sock:/var/run/docker.sock $KUBEMACS_IMAGE
+    ENV_FILE=$HOME/.kubemacs-env
+    . $ENV_FILE
+    docker run \
+      --env-file $ENV_FILE \
+      -v "$HOME/.kube:/tmp/.kube" \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      --user root \
+      --privileged \
+      --network host \
+      --name kubemacs-docker-init \
+      --rm \
+      -it \
+      $KUBEMACS_IMAGE
     #+end_src
 
 *** Docker (any platform)

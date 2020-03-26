@@ -66,7 +66,8 @@ function promptMultiChoice() {
     for option in $allOptions; do
         counted=$((counted+=1))
         if [ $option = $promptResp ]; then
-            return $counted
+            matches=true
+            break
         fi
     done
 
@@ -74,7 +75,7 @@ function promptMultiChoice() {
         counted=0
     fi
 
-    return $counted
+    echo $counted
 }
 
 KUBEMACS_IMAGE="${KUBEMACS_IMAGE:-}"
@@ -101,56 +102,12 @@ if [ $KUBEMACS_INIT_DEBUG = true ]; then
     set -x
 fi
 
-# RUN example
-#
-# docker run -it --rm --privileged --name kubemacs-init \
-#    -v $HOME/.kube:/tmp/.kube \
-#    -v /var/run/docker.sock:/var/run/docker.sock \
-#    -e KUBEMACS_GIT_EMAIL="myemail@example.com" \
-#    -e KUBEMACS_GIT_NAME="My Name" \
-#    -e KUBEMACS_INIT_DEFAULT_REPOS="https://github.com/cncf/apisnoop" \
-#    -e KUBEMACS_INIT_ORG_FILE="\$HOME/apisnoop/deployment/k8s/xip.io/README.org" \
-#    --user root \
-#    gcr.io/kubemacs/kubemacs:latest /usr/local/bin/docker-init.sh
-
-cat <<EOF
-| Kubemacs config                                                        |
-| ---------------------------------------------------------------------- |
-| Property                            | Default value    | Current value |
-| ----------------------------------- | ---------------- | ------------- |
-| KUBEMACS_IMAGE                      |                  | $KUBEMACS_IMAGE |
-| KUBEMACS_DOCKER_INIT_CONTAINER_NAME | kubemacs-init    | $KUBEMACS_DOCKER_INIT_CONTAINER_NAME |
-| KUBEMACS_INIT_DEBUG                 | false            | $KUBEMACS_INIT_DEBUG |
-| KUBEMACS_HOST_KUBECONFIG_NAME       | config-kind      | $KUBEMACS_HOST_KUBECONFIG_NAME |
-| KUBEMACS_KIND_NAME                  | kind             | $KUBEMACS_KIND_NAME |
-| KUBEMACS_GIT_EMAIL                  |                  | $KUBEMACS_GIT_EMAIL |
-| KUBEMACS_GIT_NAME                   |                  | $KUBEMACS_GIT_NAME |
-| KUBEMACS_TIMEZONE                   | Pacific/Auckland | $KUBEMACS_TIMEZONE |
-| DOCKER_HOST                         |                  | $DOCKER_HOST |
-| KIND_LOCAL_REGISTRY_ENABLE          | false            | $KIND_LOCAL_REGISTRY_ENABLE |
-| KIND_LOCAL_REGISTRY_NAME            | registry         | $KIND_LOCAL_REGISTRY_NAME |
-| KIND_LOCAL_REGISTRY_PORT            | 5000             | $KIND_LOCAL_REGISTRY_PORT |
-| KUBEMACS_INIT_DEFAULT_NAMESPACE     | kubemacs         | $KUBEMACS_INIT_DEFAULT_NAMESPACE |
-| KUBEMACS_INIT_DEFAULT_REPOS_FOLDER  | /home/ii         | $KUBEMACS_INIT_DEFAULT_REPOS_FOLDER |
-| KUBEMACS_INIT_DEFAULT_REPOS         |                  | $KUBEMACS_INIT_DEFAULT_REPOS |
-| KUBEMACS_INIT_DEFAULT_DIR           | /home/ii         | $KUBEMACS_INIT_DEFAULT_DIR |
-| KUBEMACS_INIT_ORG_FILE              |                  | $KUBEMACS_INIT_ORG_FILE |
-| KUBEMACS_INIT_PREFINISH_BLOCK       |                  | $KUBEMACS_INIT_PREFINISH_BLOCK |
-| HOST_UID                            | 0                | $HOST_UID |
-
-EOF
-
-checkEnvForEmpty KUBEMACS_GIT_EMAIL "$KUBEMACS_GIT_EMAIL" || exit 1
-checkEnvForEmpty KUBEMACS_GIT_NAME  "$KUBEMACS_GIT_NAME"  || exit 1
-
-promptEnterOrQuit "Are you happy with using the config above?" || exit 1
-
 if ! ( [ -f /.dockerenv ] || [ -f /run/.containerenv ] ); then
     echo "[error] this must run in a container"
     exit 1
 fi
 
-if ! docker info 2>&1 > /dev/null; then
+if ! docker info -f "{.}" 2>&1 > /dev/null; then
     echo "[error] cannot talk to the Docker socket"
     exit 1
 fi
@@ -178,22 +135,57 @@ fi
 
 WILL_CREATE_CLUSTER=true
 if kind get clusters | grep "$KUBEMACS_KIND_NAME" 2>&1 > /dev/null; then
-    promptMultiChoice "There appears to be a Kind cluster existing called '$KUBEMACS_KIND_NAME' - would you like to [d]elete it and recreate it, [a]ttach to it, or [q]uit" "d" "a" "q"
-    clusterDeleteOrQuit=$?
-    if [ "$clusterDeleteOrQuit" -eq 3 ]; then
+    clusterDeleteOrQuit=$(promptMultiChoice "There appears to be a Kind cluster existing called '$KUBEMACS_KIND_NAME' - would you like to [d]elete it and recreate it, [a]ttach to it, [u]se the cluster, or [q]uit" "d" "a" "u" "q")
+    if [ "$clusterDeleteOrQuit" = 4 ]; then
         exit 0
-    elif [ "$clusterDeleteOrQuit" -eq 2 ]; then
+    elif [ "$clusterDeleteOrQuit" = 3 ]; then
+        WILL_CREATE_CLUSTER=false
+    elif [ "$clusterDeleteOrQuit" = 2 ]; then
+        mkdir -p ~/.kube
         kind get kubeconfig > ~/.kube/config
         kubectl -n "$KUBEMACS_INIT_DEFAULT_NAMESPACE" exec -it kubemacs-0 -- attach
         exit 0
-    elif [ "$clusterDeleteOrQuit" -eq 1 ]; then
-        WILL_CREATE_CLUSTER=false
-    else
+    elif [ "$clusterDeleteOrQuit" = 1 ]; then
         execPrintOutputIfFailure kind delete cluster --name "$KUBEMACS_KIND_NAME"
+    else
+        echo "[error] you must provide a valid option"
+        exit 1
     fi
 fi
 
 if [ "$WILL_CREATE_CLUSTER" = true ]; then
+cat <<EOF
+| Kubemacs config                                                        |
+| ---------------------------------------------------------------------- |
+| Property                            | Default value    | Current value |
+| ----------------------------------- | ---------------- | ------------- |
+| KUBEMACS_IMAGE                      |                  | $KUBEMACS_IMAGE |
+| KUBEMACS_DOCKER_INIT_CONTAINER_NAME | kubemacs-init    | $KUBEMACS_DOCKER_INIT_CONTAINER_NAME |
+| KUBEMACS_INIT_DEBUG                 | false            | $KUBEMACS_INIT_DEBUG |
+| KUBEMACS_HOST_KUBECONFIG_NAME       | config-kind      | $KUBEMACS_HOST_KUBECONFIG_NAME |
+| KUBEMACS_KIND_NAME                  | kind             | $KUBEMACS_KIND_NAME |
+| KUBEMACS_GIT_EMAIL                  |                  | $KUBEMACS_GIT_EMAIL |
+| KUBEMACS_GIT_NAME                   |                  | $KUBEMACS_GIT_NAME |
+| KUBEMACS_TIMEZONE                   | Pacific/Auckland | $KUBEMACS_TIMEZONE |
+| DOCKER_HOST                         |                  | $DOCKER_HOST |
+| KIND_LOCAL_REGISTRY_ENABLE          | false            | $KIND_LOCAL_REGISTRY_ENABLE |
+| KIND_LOCAL_REGISTRY_NAME            | registry         | $KIND_LOCAL_REGISTRY_NAME |
+| KIND_LOCAL_REGISTRY_PORT            | 5000             | $KIND_LOCAL_REGISTRY_PORT |
+| KUBEMACS_INIT_DEFAULT_NAMESPACE     | kubemacs         | $KUBEMACS_INIT_DEFAULT_NAMESPACE |
+| KUBEMACS_INIT_DEFAULT_REPOS_FOLDER  | /home/ii         | $KUBEMACS_INIT_DEFAULT_REPOS_FOLDER |
+| KUBEMACS_INIT_DEFAULT_REPOS         |                  | $KUBEMACS_INIT_DEFAULT_REPOS |
+| KUBEMACS_INIT_DEFAULT_DIR           | /home/ii         | $KUBEMACS_INIT_DEFAULT_DIR |
+| KUBEMACS_INIT_ORG_FILE              |                  | $KUBEMACS_INIT_ORG_FILE |
+| KUBEMACS_INIT_PREFINISH_BLOCK       |                  | $KUBEMACS_INIT_PREFINISH_BLOCK |
+| HOST_UID                            | 0                | $HOST_UID |
+
+EOF
+
+    checkEnvForEmpty KUBEMACS_GIT_EMAIL "$KUBEMACS_GIT_EMAIL" || exit 1
+    checkEnvForEmpty KUBEMACS_GIT_NAME  "$KUBEMACS_GIT_NAME"  || exit 1
+
+    promptEnterOrQuit "Are you happy with using the config above?" || exit 1
+
     echo "[status] creating kind cluster"
     KIND_MANIFEST=/usr/share/kubemacs/kind-cluster-config.yaml
     if [ "$KIND_LOCAL_REGISTRY_ENABLE" = true ]; then
@@ -259,10 +251,6 @@ echo "[status] writing Kubemacs configs [1/2]"
 echo "
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# namespace: apisnoop
-# resources:
-#   - basic-auth.yaml
-  # - namespace.yaml
 bases:
   - ../usr/share/kubemacs/manifests/nginx-ingress/
   - ../usr/share/kubemacs/
@@ -285,11 +273,6 @@ patchesJSON6902:
     kind: StatefulSet
     name: kubemacs
   path: kubemacs-patch-image.yaml
-# Kustomise 'images: need exact-match for image:tag
-# Our kubemacs image repo may differ so we need to patch the statefulset instead
-# images:
-#   - name: $KUBEMACS_IMAGE_NAME
-#     newTag: $KUBEMACS_IMAGE_TAG
 " > /root/kustomization.yaml
 
 echo "[status] writing Kubemacs configs [2/2]"
@@ -308,7 +291,7 @@ execPrintOutputIfFailure kubectl apply -k /root
 kubectl delete clusterrolebinding kubemacs-crb
 # TODO: Figure out how to patch a clusterrolebinding within kustomize!
 # | kubectl patch clusterrolebinding kubemacs-crb --patch -
-cat <<EOF |kubectl apply -f -
+cat <<EOF | kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
