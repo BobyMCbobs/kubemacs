@@ -4,10 +4,10 @@ metadata:
   name: kubemacs-configuration
 data:
   TZ: "Pacific/Auckland"
-  GIT_EMAIL: hh@ii.coop
-  GIT_NAME: Hippie Hacker
-  INIT_DEFAULT_REPOS: https://github.com/cncf/apisnoop.git
-  INIT_DEFAULT_REPOS_FOLDER: /home/ii/apisnoop
-  INIT_DEFAULT_DIR: /home/ii/apisnoop
-  INIT_ORG_FILE: /home/ii/apisnoop/org/tickets/mock-template.org
+  GIT_EMAIL: ""
+  GIT_NAME: ""
+  INIT_DEFAULT_REPOS: ""
+  INIT_DEFAULT_REPOS_FOLDER: /home/ii/Projects
+  INIT_DEFAULT_DIR: /home/ii
+  INIT_ORG_FILE: /home/ii/Projects
   INIT_PREFINISH_BLOCK: ""

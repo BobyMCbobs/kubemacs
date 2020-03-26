@@ -44,6 +44,39 @@ function promptEnterNoOrQuit() {
     return
 }
 
+# promptMultiChoice "How many nodes?" "2" "3" "4"
+function promptMultiChoice() {
+    local question allOptions defaultOption providedOptions options counted promptResp
+    question=$1
+    shift
+    allOptions=$*
+    defaultOption=$1
+    shift
+    providedOptions=$*
+
+    options=""
+    for option in $providedOptions; do
+        options="$options|$option"
+    done
+
+    read -p "$question ([$defaultOption]$options) " promptResp
+
+    counted=0
+    matches=false
+    for option in $allOptions; do
+        counted=$((counted+=1))
+        if [ $option = $promptResp ]; then
+            return $counted
+        fi
+    done
+
+    if [ $matches = false ]; then
+        counted=0
+    fi
+
+    return $counted
+}
+
 KUBEMACS_IMAGE="${KUBEMACS_IMAGE:-}"
 KUBEMACS_DOCKER_INIT_CONTAINER_NAME="${KUBEMACS_DOCKER_INIT_CONTAINER_NAME:-kubemacs-docker-init}"
 KUBEMACS_INIT_DEBUG="${KUBEMACS_INIT_DEBUG:-false}"
@@ -145,17 +178,20 @@ fi
 
 WILL_CREATE_CLUSTER=true
 if kind get clusters | grep "$KUBEMACS_KIND_NAME" 2>&1 > /dev/null; then
-    promptEnterNoOrQuit "There appears to be a Kind cluster existing called '$KUBEMACS_KIND_NAME', is it OK to delete it and recreate it?"
+    promptMultiChoice "There appears to be a Kind cluster existing called '$KUBEMACS_KIND_NAME' - would you like to [d]elete it and recreate it, [a]ttach to it, or [q]uit" "d" "a" "q"
     clusterDeleteOrQuit=$?
-    if [ "$clusterDeleteOrQuit" -eq 1 ]; then
+    if [ "$clusterDeleteOrQuit" -eq 3 ]; then
         exit 0
     elif [ "$clusterDeleteOrQuit" -eq 2 ]; then
+        kind get kubeconfig > ~/.kube/config
+        kubectl -n "$KUBEMACS_INIT_DEFAULT_NAMESPACE" exec -it kubemacs-0 -- attach
+        exit 0
+    elif [ "$clusterDeleteOrQuit" -eq 1 ]; then
         WILL_CREATE_CLUSTER=false
     else
         execPrintOutputIfFailure kind delete cluster --name "$KUBEMACS_KIND_NAME"
     fi
 fi
-
 
 if [ "$WILL_CREATE_CLUSTER" = true ]; then
     echo "[status] creating kind cluster"

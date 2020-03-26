@@ -14,12 +14,12 @@ configMapGenerator:
   behavior: merge
   literals:
   - TZ=Pacific/Auckland
-  - GIT_EMAIL=ii@ii.coop
-  - GIT_NAME=Hippie Hopper
-  - INIT_DEFAULT_DIR=~
-  - INIT_DEFAULT_REPOS_FOLDER=~/Projects
-  - INIT_DEFAULT_REPOS=https://github.com/cncf/apisnoop https://github.com/kubernetes/kubernetes
-  - INIT_ORG_FILE=~/Projects/apisnoop/deployments/k8s/xip.io/README.org:37
+  - GIT_EMAIL=
+  - GIT_NAME=
+  - INIT_DEFAULT_DIR=/home/ii
+  - INIT_DEFAULT_REPOS_FOLDER=/home/ii/Projects
+  - INIT_DEFAULT_REPOS=
+  - INIT_ORG_FILE=
 # configMapGenerator:
 #   - name: kubemacs-options
 #     env: kubemacs-options

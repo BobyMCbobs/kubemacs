@@ -1,165 +1,85 @@
 # -*- ii: enabled; -*-
 #+TITLE: kubemacs
 
-* Introduction
+* Kubemacs
+#+BEGIN_QUOTE
+An integrated emacs+spacemacs-based development environment, capable of local and cloud-based workflows.
+#+END_QUOTE
 
-ii brings a number of technologies together to create an open workflow.
-Using docker will reduce the setup and maintenance of sharing the core components with others.
+** Features
+  * Efficient and modular base of emacs
 
-* Core Components
+** Installing
+*** macOS
 
-- [[http://spacemacs.org/][Spac(emacs)]]
-- [[https://orgmode.org/][Orgmode]]
-- [[https://gitlab.com/oer/oer-reveal][oer-reveal]]
 
-* Build
+*** Windows
 
-#+BEGIN_SRC tmate
-IMAGE_TAG=gcr.io/apisnoop/kubemacs:0.9.23
-docker build -t $IMAGE_TAG .
-kind load docker-image --nodes kind-worker $IMAGE_TAG
-#+END_SRC
 
-* Initializing only with Docker
+*** Linux
+
+
+*** Kubernetes
+
+
+*** Kind
+First, create a config file in your home directory called .kubemacs-env, the contents something like:
+    #+begin_src shell
+      # Kubemacs image version you which to deploy
+      KUBEMACS_IMAGE=kubemacs/kubemacs:latest
+      # Value must match `id -u` output
+      HOST_UID="1000"
+      # Your public email for Git
+      KUBEMACS_GIT_EMAIL=myemail@example.com
+      # Your name
+      KUBEMACS_GIT_NAME="John Smith"
+      # Your timezone
+      KUBEMACS_TIMEZONE=Pacific/Auckland
+      # The kubeconfig file name to write to, in ~/.kube
+      KUBEMACS_HOST_KUBECONFIG_NAME=config
+      # Using a docker registry alongside kind
+      KIND_LOCAL_REGISTRY_ENABLE=true
+      # Give your registry a name in Docker
+      KIND_LOCAL_REGISTRY_NAME=local-registry
+      # The port to serve your registry on
+      KIND_LOCAL_REGISTRY_PORT=5000
+      # A main folder to store all your git repos; defaults to home
+      KUBEMACS_INIT_DEFAULT_REPOS_FOLDER=Projects
+      # The repositories to check out
+      KUBEMACS_INIT_DEFAULT_REPOS='https://github.com/kubemacs/kubemacs https://github.com/kubernetes/kubernetes'
+      # The folder to start tmate/emacs in
+      KUBEMACS_INIT_DEFAULT_DIR=Projects/kubemacs
+      # The first file you want emacs to open
+      KUBEMACS_INIT_ORG_FILE=Projects/kubemacs/README.org
+      # Set the default deployment namespace
+      KUBEMACS_INIT_DEFAULT_NAMESPACE=ii
+      # Set commands to run on before emacs launches
+      KUBEMACS_INIT_PREFINISH_BLOCK="(git --git-dir=$INIT_DEFAULT_REPOS_FOLDER/kubernetes/.git remote add ii git@github.com:ii/kubernetes.git; git --git-dir=$INIT_DEFAULT_REPOS_FOLDER/kubemacs/.git remote add bobymcbobs git@github.com:bobymcbobs/kubemacs.git);"    
+      # Set to true to emacs
+      KUBEMACS_INIT_DEBUG=false
+    #+end_src
+
+    Initialize the environment:
+    #+begin_src shell
+    ENV_FILE=$HOME/.kubemacs-env; . $ENV_FILE; docker run --env-file $ENV_FILE --name kubemacs-docker-init --user root --privileged --network host -e KUBEMACS_INIT_DEBUG=true -e KUBEMACS_IMAGE --rm -it -v "$HOME/.kube:/tmp/.kube" -v /var/run/docker.sock:/var/run/docker.sock $KUBEMACS_IMAGE
+    #+end_src
+
+*** Docker (any platform)
 #+begin_src shell
-  docker run -it --rm --name kubemacs-init \
-     -v "$HOME/.kube":/tmp/.kube \
-     -v /var/run/docker.sock:/var/run/docker.sock \
-     -e KUBEMACS_GIT_EMAIL="myemail@example.org" \
-     -e KUBEMACS_GIT_NAME="My name" \
-     -e KUBEMACS_INIT_DEFAULT_REPOS="https://github.com/cncf/apisnoop https://github.com/kubernetes/kubernetes" \
-     -e KUBEMACS_INIT_ORG_FILE="\$HOME/Projects/apisnoop/deployment/k8s/xip.io/README.org" \
-     -e KUBEMACS_DEFAULT_KIND_NAME=kind-self-init-test \
-     -e HOST_UID="$(id -u)" \
-     -e KUBEMACS_HOST_KUBECONFIG_NAME=config-kind-my-cluster \
-     --user root \
-     --network host \
-     gcr.io/kubemacs/kubemacs:latest \
-     bash /usr/local/bin/self-init.sh
+docker run -it --rm --name kubemacs -e GIT_AUTHOR_NAME='Caleb Woodbine' -e GIT_AUTHOR_EMAIL='caleb@ii.coop' kubemacs/kubemacs:latest
 #+end_src
+**** Additional options
+***** Allow docker access
+      #+begin_src shell
+      -v /var/run/docker.sock:/var/run/docker.sock
+      #+end_src
+***** Have persistent data in the workspace folder
+      #+begin_src shell
+      -v /home/MYUSER:/home/ii/workspace
+      #+end_src
 
-** Environment variables
+** Usage
 
-| Property                           | Default value    |
-|------------------------------------+------------------|
-| KUBEMACS_IMAGE                     |                  |
-| KUBEMACS_INIT_SELF_CONTAINER_NAME  | kubemacs-init    |
-| KUBEMACS_INIT_DEBUG                | false            |
-| KUBEMACS_HOST_KUBECONFIG_NAME      | config-kind      |
-| KUBEMACS_DEFAULT_KIND_NAME         | kind             |
-| KUBEMACS_GIT_EMAIL                 |                  |
-| KUBEMACS_GIT_NAME                  |                  |
-| KUBEMACS_TIMEZONE                  | Pacific/Auckland |
-| KUBEMACS_INIT_DEFAULT_REPOS        |                  |
-| KUBEMACS_INIT_DEFAULT_REPOS_FOLDER | /home/ii/        |
-| KUBEMACS_INIT_DEFAULT_DIR          | /home/ii         |
-| KUBEMACS_INIT_ORG_FILE             |                  |
-| HOST_UID                           | 0                |
 
-* Running in k8s
-** Deployment   
-   #+begin_src shell
-   kubectl apply -f kubemacs.yaml
-   #+end_src
-** Attaching to the Pod
-   #+begin_src shell
-     PODNAME=$(kubectl -n kubemacs get pod --selector=app=kubemacs -o name  | sed s:pod/::)
-     kubectl exec -n kubemacs -t -i $PODNAME -- attach
-   #+end_src
-* dev-build loop
-  #+begin_src shell
-    IIDE=gcr.io/apisnoop/kubemacs:0.9.23
-    PODNAME=$(kubectl -n kubemacs get pod --selector=app=kubemacs -o name  | sed s:pod/::)
-    docker build -t $IIDE .
-    kind load docker-image $IIDE
-    kubectl run --generator=run-pod/v1 $PODNAME --serviceaccount='admin-kubemacs' --image=$IIDE
-    kubectl exec -t -i $PODNAME -- attach # osc52 will be sent with tmate url / you can have multiple of these
-  #+end_src
-* Script to connect to a remote box and configure your kubeconfig
-  #+begin_src shell
-    # configuration
-    export KUBECONFIG=~/.kube/config-my-remote
-    # [IMPORTANT] set your user
-    REMOTE_USER=root
-    # [IMPORTANT] set your remote box's IP
-    REMOTE_HOST=x.x.x.x
-
-    # fetch the remote kubeconfig
-    ssh $REMOTE_USER@$REMOTE_HOST kubectl config view --merge --minify --flatten > $KUBECONFIG
-
-    # find the port of the Kubernetes API in the kubeconfig and export it
-    export K8S_REMOTE_PORT=$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | cut -d ':' -f3)
-    # forward the port from the remote box to the localhost
-    ssh -fN -L $K8S_REMOTE_PORT:localhost:$K8S_REMOTE_PORT $REMOTE_USER@$REMOTE_HOST
-  #+end_src
-
-  #+begin_src shell
-  kubectl get pods -A
-  #+end_src
-
-**  Add a helper function to your ~/.bashrc
-  | Name          | Purpose                           | Example                  |
-  |---------------+-----------------------------------+--------------------------|
-  | ~KUBECONFIG~  | the kubeconfig to save to and use | ~/.kube/config-my-remote |
-  | ~REMOTE_USER~ | the remote user to login as       | ii                       |
-  | ~REMOTE_HOST~ | the remote host/ip to connect to  | myhost.example.com       |
-  |---------------+-----------------------------------+--------------------------|
-  #+begin_src shell
-    cat << EOF >> ~/.bashrc
-    function ii_setup_k8s_from_remote() {
-    # ensure:
-    # - remote server kubeconfig
-    # - defined $KUBECONFIG
-    # - remote server Kubernetes API forwarded to localhost
-
-    function ii_setup_k8s_from_remote_cleanup() {
-      set +e
-    }
-
-    trap ii_setup_k8s_from_remote_cleanup EXIT
-
-    set -e
-
-    if [ -x /tmp/ii_setup_k8s_from_remote-hasrun ]; then
-            return
-    fi
-
-    # configuration
-    if [ -z \$KUBECONFIG ]; then
-      export KUBECONFIG=~/.kube/config-my-remote
-    fi
-
-    # [IMPORTANT] set your user
-    if [ -z \$REMOTE_USER ]; then
-       echo "[error] please set \\\$REMOTE_USER"
-       return
-    fi
-
-    # [IMPORTANT] set your remote box's IP
-    if [ -z \$REMOTE_HOST ]; then
-       echo "[error] please set \\\$REMOTE_HOST"
-       return
-    fi
-
-    # fetch the remote kubeconfig
-    ssh \$REMOTE_USER@\$REMOTE_HOST kubectl config view --merge --minify --flatten > \$KUBECONFIG
-
-    # find the port of the Kubernetes API in the kubeconfig and export it
-    export K8S_REMOTE_PORT=\$(kubectl config view -o jsonpath='{.clusters[0].cluster.server}' | cut -d ':' -f3)
-
-    # check if not already listening
-    if ! lsof -i:\$K8S_REMOTE_PORT 2>&1 > /dev/null; then
-      # forward the port from the remote box to the localhost
-      ssh -fN -L \$K8S_REMOTE_PORT:localhost:\$K8S_REMOTE_PORT \$REMOTE_USER@\$REMOTE_HOST
-    fi
-
-    export DOCKER_HOST="ssh://\\\$REMOTE_USER@\\\$REMOTE_HOST"
-    echo "[ok]"
-    touch /tmp/ii_setup_k8s_from_remote-hasrun
-    ii_setup_k8s_from_remote_cleanup
-
-    }
-    EOF
-
-  #+end_src
+** License
 
