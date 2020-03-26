@@ -1,8 +1,9 @@
 # -*- ii: enabled; -*-
 #+TITLE: kubemacs
 
-#+ATTR_HTML: :width 300 :style border:2px solid black;
-[[./assets/Kubemacs-draft-logo.png]]
+#+ATTR_HTML: :alt Kubemacs logo
+#+ATTR_HTML: :width 100 :style border:2px solid black;
+#+HTML: <img src="./assets/Kubemacs-draft-logo.png" width="100"/>
 
 * Kubemacs
 #+BEGIN_QUOTE
